@@ -1,10 +1,82 @@
 import Head from "next/head";
-import React, { useContext } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "../styles/Home.module.css";
-import { AnchorContext } from "../utils/AnchorProvider";
+import { useAnchorWallet } from "@solana/wallet-adapter-react";
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+import {
+  Program,
+  AnchorProvider as Provider,
+} from "@project-serum/anchor";
+import idl from "../contracts/idl.json";
+import * as web3 from "@solana/web3.js";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+
+const programID = new PublicKey(idl.metadata.address);
+const network = clusterApiUrl("devnet");
+const opts = {
+  preflightCommitment: "processed",
+};
 
 export default function Home() {
-  const { walletAddress, connectWallet } = useContext(AnchorContext);
+  const [name, setName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const wallet = useAnchorWallet();
+
+  const getProgram = () => {
+    const connection = new Connection(network);
+    const provider = new Provider(connection, wallet, opts.preflightCommitment);
+    const program = new Program(idl, programID, provider);
+
+    return program;
+  };
+
+  const updateName = async () => {
+    try {
+      const program = getProgram();
+      setName('');
+
+      const [pda] = await web3.PublicKey.findProgramAddress(
+        [wallet.publicKey.toBuffer()],
+        programID
+      );
+
+      await program.methods
+        .updateUser(name)
+        .accounts({
+          user: wallet.publicKey,
+          userAccount: pda,
+        })
+        .signers([])
+        .rpc();
+
+      const pdaUser = await program.account.user.fetch(pda);
+      setDisplayName(pdaUser.name);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const showName = async () => {
+    try {
+      const program = getProgram();
+      const [pda] = await web3.PublicKey.findProgramAddress(
+        [wallet.publicKey.toBuffer()],
+        programID
+      );
+      const pdaUser = await program.account.user.fetch(pda);
+      setDisplayName(pdaUser.name);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleChange = (event) => {
+    setName(event.target.value);
+  };
+
+  useEffect(() => {
+    showName();
+  }, []);
 
   return (
     <div className={styles.container}>
@@ -42,30 +114,24 @@ export default function Home() {
               </a>
             </div>
             <div>
-              {!walletAddress && (
-                <button
-                  className="rounded-full px-4 py-2 bg-violet-900"
-                  onClick={connectWallet}
-                >
-                  Login with Phantom
-                </button>
-              )}
-              {walletAddress && (
-                <button className="rounded-full px-4 py-2 bg-green-600">
-                  Connected
-                </button>
-              )}
+              <WalletMultiButton />
             </div>
           </div>
         </nav>
       </header>
 
       <main className={styles.main}>
-        {walletAddress && (
-          <div>
-            Name: <input type="text" name="name" />
-          </div>
-        )}
+        <div>{displayName}</div>
+        <div>
+          Name:{" "}
+          <input type="text" name="name" onChange={handleChange} value={name} />
+          <button
+            className="rounded-full px-4 py-2 bg-green-600"
+            onClick={updateName}
+          >
+            Submit
+          </button>
+        </div>
       </main>
 
       <footer className={styles.footer}></footer>

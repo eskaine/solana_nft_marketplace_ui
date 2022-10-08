@@ -1,11 +1,11 @@
 import "../styles/globals.css";
-import { AnchorProvider } from "../utils/AnchorProvider";
+import { SolanaWalletProvider } from "../utils/SolanaWalletProvider";
 
 function MyApp({ Component, pageProps }) {
   return (
-    <AnchorProvider>
+    <SolanaWalletProvider>
       <Component {...pageProps} />
-    </AnchorProvider>
+    </SolanaWalletProvider>
   );
 }
 
